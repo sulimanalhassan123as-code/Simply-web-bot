@@ -1,0 +1,14 @@
+{
+  "name": "simple-iphone-bot",
+  "version": "1.0.0",
+  "description": "A simple self-healing WhatsApp bot",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@whisky-sockets/baileys": "^6.6.0",
+    "pino": "^8.0.0",
+    "qrcode-terminal": "^0.12.0"
+  }
+}
