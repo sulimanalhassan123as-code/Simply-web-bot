@@ -1,75 +1,59 @@
-const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whisky-sockets/baileys');
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, delay } = require('@whisky-sockets/baileys');
 const pino = require('pino');
-const qrcode = require('qrcode-terminal');
+const fs = require('fs');
+
+// 👇👇 INSTRUCTIONS FOR USER: Change the line below to your real number! 👇👇
+const myPhoneNumber = "233248503631"; 
 
 async function startBot() {
-    console.log("🟢 SYSTEM: Starting Bot...");
-    
-    // 1. Load Session Data
+    console.log("🟢 SYSTEM: Starting Pairing Mode...");
+
+    // Remove old session to prevent Error 405
+    if (fs.existsSync('auth_info') && !fs.existsSync('auth_info/creds.json')) {
+        fs.rmSync('auth_info', { recursive: true, force: true });
+    }
+
     const { state, saveCreds } = await useMultiFileAuthState('auth_info');
 
-    // 2. Create the Connection
     const sock = makeWASocket({
-        logger: pino({ level: 'silent' }), // Keep the logs clean
-        printQRInTerminal: true, // Show QR in the console
+        logger: pino({ level: 'silent' }),
+        printQRInTerminal: false, // QR is OFF
         auth: state,
-        browser: ["iPhone Bot", "Safari", "1.0"], // Identify as iPhone
         connectTimeoutMs: 60000,
     });
 
-    // 3. Handle Connection Events (The "Self-Healing" Part)
+    if (!sock.authState.creds.me && !sock.authState.creds.registered) {
+        setTimeout(async () => {
+            try {
+                // Request Pairing Code
+                // If the number is still the default XXXXX, this will fail safely.
+                if (myPhoneNumber === "233XXXXXXXXX") {
+                    console.log("⚠️ STOP! You forgot to add your phone number in index.js (Line 6).");
+                } else {
+                    const code = await sock.requestPairingCode(myPhoneNumber);
+                    console.log(`\n\n📢 YOUR PAIRING CODE:  ${code?.match(/.{1,4}/g)?.join("-") || code}\n\n`);
+                }
+            } catch (err) {
+                console.log("⚠️ Error: Could not generate code. Check phone number format!", err);
+            }
+        }, 3000);
+    }
+
     sock.ev.on('connection.update', (update) => {
-        const { connection, lastDisconnect, qr } = update;
-
-        if (qr) {
-            // Force small QR for mobile screens
-            qrcode.generate(qr, { small: true });
-            console.log("\n⚠️ SCAN THIS QR CODE NOW!");
-        }
-
+        const { connection, lastDisconnect } = update;
         if (connection === 'close') {
             const reason = (lastDisconnect?.error)?.output?.statusCode;
-            console.log(`🔴 Connection Closed. Reason: ${reason}`);
-            
-            // Reconnect unless logged out
             if (reason !== DisconnectReason.loggedOut) {
-                console.log("🔄 Auto-Restarting...");
                 startBot();
             } else {
-                console.log("⛔ You are logged out. Delete the 'auth_info' folder and restart to scan again.");
+                console.log("⛔ Logged out. Delete 'auth_info' folder to restart.");
             }
         } else if (connection === 'open') {
-            console.log('✅ CONNECTED! Send "!ping" to test.');
+            console.log('✅ CONNECTED! You can now use the bot.');
         }
     });
 
     sock.ev.on('creds.update', saveCreds);
-
-    // 4. Simple Commands
-    sock.ev.on('messages.upsert', async (m) => {
-        try {
-            const msg = m.messages[0];
-            if (!msg.message || msg.key.fromMe) return;
-
-            const from = msg.key.remoteJid;
-            const type = Object.keys(msg.message)[0];
-            const body = (type === 'conversation') ? msg.message.conversation :
-                         (type === 'extendedTextMessage') ? msg.message.extendedTextMessage.text : '';
-
-            // Test Command
-            if (body.toLowerCase() === '!ping') {
-                await sock.sendMessage(from, { text: 'Pong! 🏓 I am alive.' });
-            }
-             // Hello Command
-             if (body.toLowerCase() === 'hi') {
-                await sock.sendMessage(from, { text: 'Hello! I am your new WhatsApp Bot.' });
-            }
-
-        } catch (err) {
-            console.log("Error handling message:", err);
-        }
-    });
 }
 
 startBot();
-          
