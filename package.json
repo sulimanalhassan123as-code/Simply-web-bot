@@ -1,5 +1,5 @@
 {
-  "name": "simply-web-bot",
+  "name": "neverhide-superbot",
   "version": "1.0.0",
   "description": "NeverHide Super Group Bot",
   "main": "index.js",
@@ -8,7 +8,6 @@
   },
   "dependencies": {
     "@whiskeysockets/baileys": "^6.6.0",
-    "pino": "^8.0.0",
-    "dotenv": "^16.4.0"
+    "pino": "^8.0.0"
   }
 }
