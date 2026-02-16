@@ -1,73 +1,109 @@
-const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } = require("@whiskeysockets/baileys");
+const { 
+  default: makeWASocket,
+  useMultiFileAuthState,
+  DisconnectReason,
+  fetchLatestBaileysVersion
+} = require("@whiskeysockets/baileys");
+
 const pino = require("pino");
 const fs = require("fs");
-const path = require("path");
 const config = require("../config");
 
 async function startConnection() {
 
-    const sessionPath = path.join(__dirname, "..", "session");
+  console.log("🚀 Starting NeverHide SuperBot...");
 
-    if (!fs.existsSync(sessionPath)) {
-        fs.mkdirSync(sessionPath);
-    }
+  const sessionFolder = "session";
 
-    const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
-    const { version } = await fetchLatestBaileysVersion();
+  if (!fs.existsSync(sessionFolder)) {
+    fs.mkdirSync(sessionFolder);
+  }
 
-    const sock = makeWASocket({
-        version,
-        logger: pino({ level: "silent" }),
-        printQRInTerminal: true,
-        auth: state,
-        markOnlineOnConnect: true,
-        syncFullHistory: false,
-        browser: ["Ubuntu", "Chrome", "20.0.04"]
-    });
+  const { state, saveCreds } = await useMultiFileAuthState(sessionFolder);
+  const { version } = await fetchLatestBaileysVersion();
+
+  const sock = makeWASocket({
+    version,
+    logger: pino({ level: "silent" }),
+    auth: state,
+    browser: ["NeverHide Bot", "Chrome", "1.0.0"],
+    markOnlineOnConnect: false,
+    syncFullHistory: false,
+    generateHighQualityLinkPreview: false
+  });
+
+  // 🔥 Pairing Code Mode
+  if (!sock.authState.creds.registered) {
+    const code = await sock.requestPairingCode(process.env.OWNER_NUMBER);
+    console.log(`\n📲 PAIRING CODE: ${code}\n`);
+  }
+
+  sock.ev.on("creds.update", saveCreds);
+
   sock.ev.on("connection.update", (update) => {
-        const { connection, lastDisconnect } = update;
+    const { connection, lastDisconnect } = update;
 
-        if (connection === "close") {
-            const shouldReconnect =
-                (lastDisconnect?.error)?.output?.statusCode !== DisconnectReason.loggedOut;
+    if (connection === "close") {
+      const reason = lastDisconnect?.error?.output?.statusCode;
 
-            console.log("❌ Connection closed.");
+      if (reason === DisconnectReason.loggedOut) {
+        console.log("❌ Logged out. Delete session folder.");
+      } else {
+        console.log("🔄 Reconnecting...");
+        startConnection();
+      }
 
-            if (shouldReconnect) {
-                console.log("🔄 Reconnecting...");
-                startConnection();
-            } else {
-                console.log("🚫 Logged out. Delete session folder to re-pair.");
-            }
-        }
+    } else if (connection === "open") {
+      console.log("✅ BOT CONNECTED SUCCESSFULLY!");
+    }
+  });
 
-        if (connection === "open") {
-            console.log("✅ Bot connected successfully!");
-        }
-    });
+  sock.ev.on("messages.upsert", async (m) => {
+    try {
+      const msg = m.messages[0];
+      if (!msg.message) return;
 
-    sock.ev.on("creds.update", saveCreds);
+      const from = msg.key.remoteJid;
+      const isGroup = from.endsWith("@g.us");
 
-    sock.ev.on("messages.upsert", async ({ messages }) => {
-        const msg = messages[0];
-        if (!msg.message) return;
-        if (msg.key.fromMe) return;
+      if (!isGroup) return; // Only group bot
 
-        const messageType = Object.keys(msg.message)[0];
+      const body =
+        msg.message.conversation ||
+        msg.message.extendedTextMessage?.text ||
+        "";
 
-        let body = "";
+      if (body === ".menu") {
+        await sock.sendMessage(from, {
+          text: `
+╭━━━〔 🌟 NEVERHIDE SUPERBOT 🌟 〕━━━╮
+┃ 👑 Developer: NEVER HIDE
+┃ 🤖 Version: 1.0.0
+╰━━━━━━━━━━━━━━━━━━━━━━━╯
 
-        if (messageType === "conversation") {
-            body = msg.message.conversation;
-        } else if (messageType === "extendedTextMessage") {
-            body = msg.message.extendedTextMessage.text;
-        }
+📚 *Learning Menu*
+• .learn js
+• .learn ai
 
-        if (!body) return;
+🎮 *Fun Menu*
+• .joke
+• .truth
+• .dare
 
-        console.log("📩 Message:", body);
-    });
+🛡 *Group Menu*
+• .warn @user
+• .kick @user
+• .tagall
 
+✨ More features coming soon...
+`
+        });
+      }
+
+    } catch (err) {
+      console.log("Error:", err.message);
+    }
+  });
 }
 
 module.exports = startConnection;
