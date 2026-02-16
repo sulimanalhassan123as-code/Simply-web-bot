@@ -1,17 +1,14 @@
 {
-  "name": "neverhide-superbot",
+  "name": "simply-web-bot",
   "version": "1.0.0",
-  "description": "Professional WhatsApp Group Super Bot",
+  "description": "NeverHide Super Group Bot",
   "main": "index.js",
-  "type": "commonjs",
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
     "@whiskeysockets/baileys": "^6.6.0",
     "pino": "^8.0.0",
-    "dotenv": "^16.0.0",
-    "axios": "^1.6.0",
-    "fs-extra": "^11.0.0"
+    "dotenv": "^16.4.0"
   }
 }
