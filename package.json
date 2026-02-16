@@ -1,14 +1,17 @@
 {
-  "name": "simple-iphone-bot",
+  "name": "neverhide-superbot",
   "version": "1.0.0",
-  "description": "A simple self-healing WhatsApp bot",
+  "description": "Professional WhatsApp Group Super Bot",
   "main": "index.js",
+  "type": "commonjs",
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
-    "@whisky-sockets/baileys": "^6.6.0",
+    "@whiskeysockets/baileys": "^6.6.0",
     "pino": "^8.0.0",
-    "qrcode-terminal": "^0.12.0"
+    "dotenv": "^16.0.0",
+    "axios": "^1.6.0",
+    "fs-extra": "^11.0.0"
   }
 }
