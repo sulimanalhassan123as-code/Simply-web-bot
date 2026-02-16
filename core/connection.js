@@ -1,4 +1,4 @@
-const { 
+const {
   default: makeWASocket,
   useMultiFileAuthState,
   DisconnectReason,
@@ -7,35 +7,42 @@ const {
 
 const pino = require("pino");
 const fs = require("fs");
+const path = require("path");
 const config = require("../config");
 
 async function startConnection() {
 
   console.log("🚀 Starting NeverHide SuperBot...");
 
-  const sessionFolder = "session";
+  // IMPORTANT: absolute path for persistent disk
+  const sessionPath = path.join(process.cwd(), "session");
 
-  if (!fs.existsSync(sessionFolder)) {
-    fs.mkdirSync(sessionFolder);
+  if (!fs.existsSync(sessionPath)) {
+    fs.mkdirSync(sessionPath, { recursive: true });
   }
 
-  const { state, saveCreds } = await useMultiFileAuthState(sessionFolder);
+  const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
   const { version } = await fetchLatestBaileysVersion();
 
   const sock = makeWASocket({
     version,
     logger: pino({ level: "silent" }),
     auth: state,
-    browser: ["NeverHide Bot", "Chrome", "1.0.0"],
+    browser: ["NeverHide", "Android", "10.0"],
     markOnlineOnConnect: false,
     syncFullHistory: false,
-    generateHighQualityLinkPreview: false
+    generateHighQualityLinkPreview: false,
+    emitOwnEvents: false
   });
 
-  // 🔥 Pairing Code Mode
+  // 🔥 PAIR ONLY IF NOT REGISTERED
   if (!sock.authState.creds.registered) {
-    const code = await sock.requestPairingCode(process.env.OWNER_NUMBER);
-    console.log(`\n📲 PAIRING CODE: ${code}\n`);
+    try {
+      const code = await sock.requestPairingCode(config.ownerNumber);
+      console.log("\n📲 PAIRING CODE:", code, "\n");
+    } catch (err) {
+      console.log("Pairing Error:", err.message);
+    }
   }
 
   sock.ev.on("creds.update", saveCreds);
@@ -47,10 +54,10 @@ async function startConnection() {
       const reason = lastDisconnect?.error?.output?.statusCode;
 
       if (reason === DisconnectReason.loggedOut) {
-        console.log("❌ Logged out. Delete session folder.");
+        console.log("❌ Logged out. Delete session folder manually.");
       } else {
         console.log("🔄 Reconnecting...");
-        startConnection();
+        setTimeout(() => startConnection(), 5000);
       }
 
     } else if (connection === "open") {
@@ -58,15 +65,14 @@ async function startConnection() {
     }
   });
 
+  // 🔥 GROUP ONLY LISTENER
   sock.ev.on("messages.upsert", async (m) => {
     try {
       const msg = m.messages[0];
       if (!msg.message) return;
 
       const from = msg.key.remoteJid;
-      const isGroup = from.endsWith("@g.us");
-
-      if (!isGroup) return; // Only group bot
+      if (!from.endsWith("@g.us")) return;
 
       const body =
         msg.message.conversation ||
@@ -78,30 +84,29 @@ async function startConnection() {
           text: `
 ╭━━━〔 🌟 NEVERHIDE SUPERBOT 🌟 〕━━━╮
 ┃ 👑 Developer: NEVER HIDE
-┃ 🤖 Version: 1.0.0
+┃ 🤖 Stable Mode Enabled
 ╰━━━━━━━━━━━━━━━━━━━━━━━╯
 
-📚 *Learning Menu*
+📚 Learning
 • .learn js
 • .learn ai
 
-🎮 *Fun Menu*
+🎮 Fun
 • .joke
 • .truth
 • .dare
 
-🛡 *Group Menu*
+🛡 Group Tools
 • .warn @user
-• .kick @user
 • .tagall
 
-✨ More features coming soon...
+More updates coming...
 `
         });
       }
 
     } catch (err) {
-      console.log("Error:", err.message);
+      console.log("Message Error:", err.message);
     }
   });
 }
