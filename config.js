@@ -1,4 +1,4 @@
 module.exports = {
   botName: "NeverHide SuperBot",
-  ownerNumber: "233537088303"  // NO + sign
+  ownerNumber: "233599931348"  // NO + sign
 };
